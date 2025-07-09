@@ -1,0 +1,29 @@
+{
+  "extends": ["stylelint-config-standard"],
+  "rules": {
+    "at-rule-no-unknown": [
+      true,
+      {
+        "ignoreAtRules": [
+          "tailwind",
+          "apply",
+          "variants",
+          "responsive",
+          "screen",
+          "layer"
+        ]
+      }
+    ],
+    "function-no-unknown": [
+      true,
+      {
+        "ignoreFunctions": ["theme", "screen"]
+      }
+    ],
+    "no-descending-specificity": null,
+    "value-no-vendor-prefix": null,
+    "property-no-vendor-prefix": null,
+    "font-family-name-quotes": "always-unless-keyword",
+    "at-rule-no-deprecated": null
+  }
+}
