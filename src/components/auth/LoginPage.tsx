@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useNotifications } from '../../contexts/NotificationContext'
 import LoadingSpinner from '../shared/LoadingSpinner'
@@ -10,17 +10,17 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   
-  const { login } = useAuth()
+  const { login, clearSelectedOrganization } = useAuth()
   const { showToast } = useNotifications()
-  const navigate = useNavigate()
   const location = useLocation()
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (location.state && (location.state as any).registered) {
       showToast('success', 'Registration successful! Please sign in.')
     }
     // Optionally clear the state after showing the toast
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,11 +34,48 @@ const LoginPage: React.FC = () => {
     setLoading(true)
 
     try {
-      await login(email, password)
+      console.log('LoginPage: Starting login process')
+      const user = await login(email, password)
+      console.log('LoginPage: login() result:', user)
+      clearSelectedOrganization()
+      console.log('LoginPage: Login successful, clearing organization selection')
       showToast('success', 'Welcome back!')
-      navigate('/')
+      
+      // Add a small delay to ensure auth state is updated before navigation
+      console.log('LoginPage: Waiting for auth state update...')
+      setTimeout(() => {
+        console.log('LoginPage: Navigating to organization selector')
+        navigate('/select-organization', { replace: true })
+      }, 100)
     } catch (error: any) {
-      showToast('error', error.message || 'Failed to login')
+      console.error('LoginPage: Login failed:', error)
+      let errorMessage = 'Failed to login'
+      
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/invalid-api-key':
+            errorMessage = 'Firebase configuration error. Please check your API key.'
+            break
+          case 'auth/user-not-found':
+            errorMessage = 'No account found with this email address.'
+            break
+          case 'auth/wrong-password':
+            errorMessage = 'Incorrect password.'
+            break
+          case 'auth/invalid-email':
+            errorMessage = 'Invalid email address.'
+            break
+          case 'auth/too-many-requests':
+            errorMessage = 'Too many failed attempts. Please try again later.'
+            break
+          default:
+            errorMessage = error.message || 'Failed to login'
+        }
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      showToast('error', errorMessage)
     } finally {
       setLoading(false)
     }
@@ -127,9 +164,16 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="text-sm">
-              <a href="#" className="font-medium text-primary-600 hover:text-primary-500">
+              <button
+                type="button"
+                className="font-medium text-primary-600 hover:text-primary-500 bg-transparent border-none cursor-pointer"
+                onClick={() => {
+                  // TODO: Implement forgot password functionality
+                  showToast('info', 'Forgot password feature coming soon!')
+                }}
+              >
                 Forgot your password?
-              </a>
+              </button>
             </div>
           </div>
 

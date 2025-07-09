@@ -24,6 +24,7 @@ interface AuthContextType {
   updateUserProfile: (updates: Partial<User>) => Promise<void>
   selectOrganization: (organization: OrganizationSelection) => void
   refreshOrganizations: () => Promise<void>
+  clearSelectedOrganization: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -112,8 +113,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      console.log('AuthContext: Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out')
       if (firebaseUser) {
         try {
+          console.log('AuthContext: Fetching user data from Firestore')
           // Get user data from Firestore
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
           if (userDoc.exists()) {
@@ -141,6 +144,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 }
               }
             }
+            console.log('AuthContext: User data loaded:', { id: user.id, role: user.role, organizationIds: user.organizationIds })
             setCurrentUser(user)
             
             // Update last login
@@ -149,18 +153,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             })
 
             // Fetch available organizations
+            console.log('AuthContext: Fetching available organizations')
             const organizations = await fetchUserOrganizations(user)
+            console.log('AuthContext: Available organizations:', organizations.length, organizations.map(o => ({ id: o.id, name: o.name })))
             setAvailableOrganizations(organizations)
 
             // Auto-select first organization if only one available
             if (organizations.length === 1) {
+              console.log('AuthContext: Auto-selecting single organization:', organizations[0].name)
               setSelectedOrganization(organizations[0])
+            } else if (organizations.length > 1) {
+              console.log('AuthContext: Multiple organizations available, user needs to select')
+            } else {
+              console.log('AuthContext: No organizations available for user')
             }
           }
         } catch (error) {
-          console.error('Error fetching user data:', error)
+          console.error('AuthContext: Error fetching user data:', error)
         }
       } else {
+        console.log('AuthContext: Clearing user state')
         setCurrentUser(null)
         setSelectedOrganization(null)
         setAvailableOrganizations([])
@@ -176,15 +188,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }
 
   const register = async (email: string, password: string, name: string) => {
+    console.log('AuthContext: Starting registration process for:', email)
     const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password)
+    console.log('AuthContext: Firebase user created:', firebaseUser.uid)
     
     // Update Firebase Auth profile
     await updateProfile(firebaseUser, { displayName: name })
+    console.log('AuthContext: Firebase profile updated')
     
     // Check if this is the first user (should be app_admin)
     const usersQuery = query(collection(db, 'users'), limit(1))
     const usersSnapshot = await getDocs(usersQuery)
     const isFirstUser = usersSnapshot.empty
+    console.log('AuthContext: Is first user?', isFirstUser)
     
     // Create user document in Firestore
     const userData: Omit<User, 'id'> = {
@@ -209,10 +225,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
     
     await setDoc(doc(db, 'users', firebaseUser.uid), userData)
+    console.log('AuthContext: User document created in Firestore with role:', userData.role)
+    
+    // Sign out the user after registration so they need to login
+    await firebaseSignOut(auth)
+    console.log('AuthContext: User signed out after registration')
   }
 
   const logout = async () => {
     await firebaseSignOut(auth)
+    setSelectedOrganization(null)
+    localStorage.removeItem('selectedOrganization')
   }
 
   const resetPassword = async (email: string) => {
@@ -230,6 +253,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setSelectedOrganization(organization)
     // Store selection in localStorage for persistence
     localStorage.setItem('selectedOrganization', JSON.stringify(organization))
+  }
+
+  const clearSelectedOrganization = () => {
+    setSelectedOrganization(null)
+    localStorage.removeItem('selectedOrganization')
   }
 
   const refreshOrganizations = async () => {
@@ -255,7 +283,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [availableOrganizations])
 
-  const value: AuthContextType = {
+  const value: AuthContextType & { clearSelectedOrganization: () => void } = {
     currentUser,
     selectedOrganization,
     availableOrganizations,
@@ -266,7 +294,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     resetPassword,
     updateUserProfile,
     selectOrganization,
-    refreshOrganizations
+    refreshOrganizations,
+    clearSelectedOrganization
   }
 
   return (

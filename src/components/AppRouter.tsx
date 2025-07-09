@@ -1,5 +1,5 @@
-import React, { Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import React, { Suspense, useEffect } from 'react'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from './shared/LoadingSpinner'
 
@@ -17,6 +17,44 @@ const SettingsPage = React.lazy(() => import('./settings/SettingsPage'))
 
 const AppRouter: React.FC = () => {
   const { currentUser, selectedOrganization, loading } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    console.log('AppRouter redirect check:')
+    console.log('  currentUser:', currentUser)
+    console.log('  selectedOrganization:', selectedOrganization)
+    console.log('  pathname:', location.pathname)
+    
+    if (loading) {
+      console.log('AppRouter: Still loading, skipping redirect logic')
+      return
+    }
+    
+    // Don't interfere with login/register pages
+    if (location.pathname === '/login' || location.pathname === '/register') {
+      console.log('AppRouter: On auth page, skipping redirect logic')
+      return
+    }
+    
+    if (
+      currentUser &&
+      !selectedOrganization &&
+      location.pathname !== '/select-organization'
+    ) {
+      console.log('AppRouter: Redirecting to /select-organization')
+      navigate('/select-organization', { replace: true })
+      setTimeout(() => {
+        if (window.location.pathname !== '/select-organization') {
+          console.log('AppRouter: Hard redirect to /select-organization')
+          window.location.replace('/select-organization')
+        }
+      }, 200)
+    } else if (currentUser && selectedOrganization && location.pathname === '/select-organization') {
+      console.log('AppRouter: User has organization selected but still on selector page, redirecting to dashboard')
+      navigate('/', { replace: true })
+    }
+  }, [currentUser, selectedOrganization, location.pathname, navigate, loading])
 
   if (loading) {
     return <LoadingSpinner />

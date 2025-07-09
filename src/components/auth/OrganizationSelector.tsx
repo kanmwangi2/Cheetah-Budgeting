@@ -6,6 +6,7 @@ import { useNotifications } from '../../contexts/NotificationContext'
 import { OrganizationSelection } from '../../types/user'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../services/firebase'
+import { useNavigate } from 'react-router-dom'
 
 const OrganizationSelector: React.FC = () => {
   const { availableOrganizations, selectOrganization, currentUser, refreshOrganizations } = useAuth()
@@ -16,10 +17,14 @@ const OrganizationSelector: React.FC = () => {
   const [newOrgCountry, setNewOrgCountry] = useState('')
   const [newOrgCurrency, setNewOrgCurrency] = useState('')
   const [createLoading, setCreateLoading] = useState(false)
+  const navigate = useNavigate()
 
   const handleOrganizationSelect = (organization: OrganizationSelection) => {
+    console.log('OrganizationSelector: Selecting organization:', organization.name)
     selectOrganization(organization)
     showToast('success', `Selected ${organization.name}`)
+    console.log('OrganizationSelector: Navigating to dashboard')
+    navigate('/')
   }
 
   const handleSubmit = (e: React.FormEvent) => {
