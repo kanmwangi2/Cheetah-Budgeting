@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useNotifications } from '../../contexts/NotificationContext'
 import LoadingSpinner from '../shared/LoadingSpinner'
@@ -13,6 +13,15 @@ const LoginPage: React.FC = () => {
   const { login } = useAuth()
   const { showToast } = useNotifications()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    if (location.state && (location.state as any).registered) {
+      showToast('success', 'Registration successful! Please sign in.')
+    }
+    // Optionally clear the state after showing the toast
+    // eslint-disable-next-line
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

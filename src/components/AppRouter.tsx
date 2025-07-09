@@ -16,7 +16,7 @@ const ReportsPage = React.lazy(() => import('./reports/ReportsPage'))
 const SettingsPage = React.lazy(() => import('./settings/SettingsPage'))
 
 const AppRouter: React.FC = () => {
-  const { currentUser, selectedOrganization, availableOrganizations, loading } = useAuth()
+  const { currentUser, selectedOrganization, loading } = useAuth()
 
   if (loading) {
     return <LoadingSpinner />
@@ -27,8 +27,8 @@ const AppRouter: React.FC = () => {
       <Routes>
         {currentUser ? (
           <>
-            {/* If user is logged in but hasn't selected organization (and has choices) */}
-            {!selectedOrganization && availableOrganizations.length > 1 ? (
+            {/* If user is logged in but hasn't selected organization */}
+            {!selectedOrganization ? (
               <>
                 <Route path="/select-organization" element={<OrganizationSelector />} />
                 <Route path="*" element={<Navigate to="/select-organization" replace />} />

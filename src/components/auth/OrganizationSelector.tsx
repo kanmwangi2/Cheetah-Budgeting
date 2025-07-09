@@ -4,11 +4,18 @@ import { Building2, Users, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useNotifications } from '../../contexts/NotificationContext'
 import { OrganizationSelection } from '../../types/user'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../../services/firebase'
 
 const OrganizationSelector: React.FC = () => {
-  const { availableOrganizations, selectOrganization, currentUser } = useAuth()
+  const { availableOrganizations, selectOrganization, currentUser, refreshOrganizations } = useAuth()
   const { showToast } = useNotifications()
   const [selectedOrgId, setSelectedOrgId] = useState<string>('')
+  const [creating, setCreating] = useState(false)
+  const [newOrgName, setNewOrgName] = useState('')
+  const [newOrgCountry, setNewOrgCountry] = useState('')
+  const [newOrgCurrency, setNewOrgCurrency] = useState('')
+  const [createLoading, setCreateLoading] = useState(false)
 
   const handleOrganizationSelect = (organization: OrganizationSelection) => {
     selectOrganization(organization)
@@ -20,6 +27,44 @@ const OrganizationSelector: React.FC = () => {
     const selectedOrg = availableOrganizations.find(org => org.id === selectedOrgId)
     if (selectedOrg) {
       handleOrganizationSelect(selectedOrg)
+    }
+  }
+
+  const handleCreateOrganization = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newOrgName || !newOrgCountry || !newOrgCurrency) {
+      showToast('error', 'Please fill in all fields')
+      return
+    }
+    setCreateLoading(true)
+    try {
+      const docRef = await addDoc(collection(db, 'organizations'), {
+        name: newOrgName,
+        country: newOrgCountry,
+        currency: newOrgCurrency,
+        adminIds: [currentUser?.id],
+        memberIds: [currentUser?.id],
+        settings: {
+          fiscalYearStart: '2025-01-01',
+          approvalWorkflow: true,
+          multiCurrency: false,
+          complianceReporting: false
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: currentUser?.id
+      })
+      showToast('success', 'Organization created!')
+      setCreating(false)
+      setNewOrgName('')
+      setNewOrgCountry('')
+      setNewOrgCurrency('')
+      await refreshOrganizations()
+      setSelectedOrgId(docRef.id)
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to create organization')
+    } finally {
+      setCreateLoading(false)
     }
   }
 
@@ -61,6 +106,73 @@ const OrganizationSelector: React.FC = () => {
             Choose the organization you want to work with
           </p>
         </div>
+
+        {/* Create Organization (app_admin only) */}
+        {currentUser?.role === 'app_admin' && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+            {!creating ? (
+              <button
+                className="text-primary-600 hover:underline font-medium"
+                onClick={() => setCreating(true)}
+              >
+                + Create New Organization
+              </button>
+            ) : (
+              <form onSubmit={handleCreateOrganization} className="space-y-4">
+                <div>
+                  <label className="block text-left text-gray-700 dark:text-gray-200 mb-1">Organization Name</label>
+                  <input
+                    type="text"
+                    className="w-full rounded border border-gray-300 dark:border-gray-700 px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                    value={newOrgName}
+                    onChange={e => setNewOrgName(e.target.value)}
+                    disabled={createLoading}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-left text-gray-700 dark:text-gray-200 mb-1">Country</label>
+                  <input
+                    type="text"
+                    className="w-full rounded border border-gray-300 dark:border-gray-700 px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                    value={newOrgCountry}
+                    onChange={e => setNewOrgCountry(e.target.value)}
+                    disabled={createLoading}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-left text-gray-700 dark:text-gray-200 mb-1">Currency</label>
+                  <input
+                    type="text"
+                    className="w-full rounded border border-gray-300 dark:border-gray-700 px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                    value={newOrgCurrency}
+                    onChange={e => setNewOrgCurrency(e.target.value)}
+                    disabled={createLoading}
+                    required
+                  />
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    type="submit"
+                    className="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 disabled:opacity-50"
+                    disabled={createLoading}
+                  >
+                    {createLoading ? 'Creating...' : 'Create'}
+                  </button>
+                  <button
+                    type="button"
+                    className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                    onClick={() => setCreating(false)}
+                    disabled={createLoading}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           <div className="space-y-4">
